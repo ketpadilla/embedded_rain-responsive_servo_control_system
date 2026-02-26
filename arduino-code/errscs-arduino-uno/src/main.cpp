@@ -104,10 +104,9 @@ void servoControl() {
 }
 
 void serialPrints() {
-  Serial.print("Analog: ");
-  Serial.print(rainValue);
-  Serial.print(" | Digital: ");
-  Serial.print(rainDetected ? "Raining" : "Dry");
-  Serial.print(" | Switch: ");
-  Serial.println(switchOn ? "ON" : "OFF");
+  Serial.print(rainValue);      Serial.print(",");
+  Serial.print(rainDetected);   Serial.print(",");
+  Serial.print(switchOn);       Serial.print(",");
+  Serial.print(servoPosition);  Serial.print(",");
+  Serial.println(buzzerVolume);
 }
