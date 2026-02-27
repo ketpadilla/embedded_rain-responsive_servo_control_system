@@ -30,6 +30,11 @@ const unsigned long servoStepInterval = 15; // ms per 1° step
 unsigned long lastRainTime = 0;
 const unsigned long reopenDelay = 5000; 
 
+void serialPrints();
+void buzzerAlert();
+void servoControl();
+void serialPrints();
+
 void setup() {
   Serial.begin(9600);
   myServo.attach(servoPin);
