@@ -13,6 +13,7 @@ int switchState = 0;
 int buzzerVolume = 0;
 int servoPosition = 0;
 int targetPosition = 0;
+int rainIntensity = 0;
 
 int rainState = 0;   // digital
 int rainValue = 0;   // analog
@@ -21,6 +22,7 @@ bool rainDetected = false;
 bool switchOn = false;
 bool servoIsClosingNow = false;
 bool allowOpen = true;
+bool forceOpenCmd = false;
 
 Servo myServo;
 
@@ -33,10 +35,11 @@ const unsigned long reopenDelay = 5000;
 void serialPrints();
 void buzzerAlert();
 void servoControl();
-void serialPrints();
+void checkSerialCommand();
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(115200);
+  Serial.setTimeout(50);   // faster readStringUntil
   myServo.attach(servoPin);
 
   pinMode(switchPin, INPUT);
@@ -51,8 +54,13 @@ void loop() {
   rainState   = digitalRead(rainDigPin);
   rainValue   = analogRead(rainAnaPin);
 
+  checkSerialCommand();
+
   rainDetected = (rainState == LOW);   // MH-RD (active LOW)
   switchOn     = (switchState == HIGH);
+  rainIntensity = map(rainValue, 900, 200, 0, 100);
+  rainIntensity = constrain(rainIntensity, 0, 100);
+  
 
   serialPrints();
 
@@ -68,9 +76,19 @@ void loop() {
   //  - switch ON
   //  - rain detected
   //  - OR still inside delay window after rain stopped
+  if (forceOpenCmd) {
+    targetPosition = 0;   // keep open
+    buzzerVolume = 0;     // keep silent
+
+    buzzerAlert();
+    servoControl();
+    delay(50);
+    return;   
+  } 
+
   targetPosition = (switchOn || rainDetected || !allowOpen)
-                   ? closePosition
-                   : 0;
+                  ? closePosition
+                  : 0;
 
   // Only ON while servo is moving to CLOSE
   servoIsClosingNow = (targetPosition == closePosition) 
@@ -108,10 +126,35 @@ void servoControl() {
   myServo.write(servoPosition);
 }
 
+void printFixed3(int value) {
+  char buffer[5];                
+  snprintf(buffer, sizeof(buffer), "%3d", value);
+  Serial.print(buffer);
+}
+
 void serialPrints() {
-  Serial.print(rainValue);      Serial.print(",");
-  Serial.print(rainDetected);   Serial.print(",");
-  Serial.print(switchOn);       Serial.print(",");
-  Serial.print(servoPosition);  Serial.print(",");
-  Serial.println(buzzerVolume);
+  printFixed3(rainIntensity);     Serial.print(",");
+  printFixed3(rainDetected);  Serial.print(",");
+  printFixed3(switchOn);      Serial.print(",");
+  printFixed3(servoPosition); Serial.print(",");
+  printFixed3(buzzerVolume); Serial.print(",");
+  printFixed3(forceOpenCmd);
+  Serial.println();
+}
+
+void checkSerialCommand() {
+  while (Serial.available()) {
+    String cmd = Serial.readStringUntil('\n');
+    cmd.trim();
+
+    if (cmd == "forceOpen") {
+      forceOpenCmd = true;        // latch ON
+      // reset auto-close logic so it won't immediately re-close after release
+      lastRainTime = 0;
+      allowOpen = true;
+    }
+    else if (cmd == "forceOpenOff") {
+      forceOpenCmd = false;       // latch OFF (deselected)
+    }
+  }
 }
